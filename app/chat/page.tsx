@@ -7,9 +7,10 @@ import Navbar from "@/components/Navbar";
 
 export default function Chat() {
   const [messages, setMessages] = useState<
-    { text: string; sender: "user" | "bot" }[]
+    { text: string; sender: "user" | "bot"; time: String}[] // after adding time property
   >([]);
   const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false); // after adding this features
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -27,18 +28,46 @@ useEffect(() => {
   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
 }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+const getTime = () => {
+  return new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
-    const userMessage = { text: input, sender: "user" as const };
+const handleSend = () => {
+  if (!input.trim()) return;
+
+  const time = getTime();
+
+  const userMessage = {
+    text: input,
+    sender: "user" as const,
+    time,
+  };
+
+  const typingMessage = {
+    text: "AI is typing...",
+    sender: "bot" as const,
+    time,
+  };
+
+  setMessages((prev) => [...prev, userMessage, typingMessage]);
+  setInput("");
+
+  setTimeout(() => {
     const botMessage = {
       text: "This is a demo AI response",
       sender: "bot" as const,
+      time: getTime(),
     };
 
-    setMessages([...messages, userMessage, botMessage]);
-    setInput("");
-  };
+    setMessages((prev) => {
+      const updated = prev.slice(0, -1);
+      return [...updated, botMessage];
+    });
+  }, 1000);
+};
 
   return (
     <div className="flex">
@@ -48,20 +77,25 @@ useEffect(() => {
       <div className="flex-1 flex flex-col">
         <Navbar />
 
+        {isTyping && (
+  <p className="text-gray-500 text-sm">AI is typing...</p>
+)}
+
         {/* Chat Area */}
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex-1 p-6 overflow-y-auto space-y-4">
           {messages.map((msg, index) => (
             <MessageBubble
               key={index}
               text={msg.text}
               sender={msg.sender}
+              time={msg.time}
             />
           ))}
           <div ref={bottomRef} />
         </div>
 
         {/* Input Area */}
-        <div className="flex-1 border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <div className="p-4 border-t flex gap-2">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
