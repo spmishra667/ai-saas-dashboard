@@ -4,82 +4,103 @@ import MessageBubble from "@/components/MessageBubble";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 
-
 export default function Chat() {
   const [messages, setMessages] = useState<
-    { text: string; sender: "user" | "bot"; time: String}[] // after adding time property
+    { text: string; sender: "user" | "bot"; time: string }[]
   >([]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false); // after adding this features
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
+  // Load from local storage
   useEffect(() => {
-  const saved = localStorage.getItem("chat");
-  if (saved) {
-    setMessages(JSON.parse(saved));
-  }
-}, []);
+    const saved = localStorage.getItem("chat");
+    if (saved) {
+      setMessages(JSON.parse(saved));
+    }
+  }, []);
 
-useEffect(() => {
-  localStorage.setItem("chat", JSON.stringify(messages));
-}, [messages]);
+  // Save to local storage
+  useEffect(() => {
+    localStorage.setItem("chat", JSON.stringify(messages));
+  }, [messages]);
 
-useEffect(() => {
-  bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-}, [messages]);
+  // Auto scroll
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-const getTime = () => {
-  return new Date().toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const handleSend = () => {
-  if (!input.trim()) return;
-
-  const time = getTime();
-
-  const userMessage = {
-    text: input,
-    sender: "user" as const,
-    time,
+  const getTime = () => {
+    return new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
-  const typingMessage = {
-    text: "AI is typing...",
-    sender: "bot" as const,
-    time,
-  };
+  const handleSend = async () => {
+    if (!input.trim()) return;
 
-  setMessages((prev) => [...prev, userMessage, typingMessage]);
-  setInput("");
+    const userInput = input;
+    const time = getTime();
 
-  setTimeout(() => {
-    const botMessage = {
-      text: "This is a demo AI response",
-      sender: "bot" as const,
-      time: getTime(),
+    const userMessage = {
+      text: userInput,
+      sender: "user" as const,
+      time,
     };
 
-    setMessages((prev) => {
-      const updated = prev.slice(0, -1);
-      return [...updated, botMessage];
-    });
-  }, 1000);
-};
+    const typingMessage = {
+      text: "AI is typing...",
+      sender: "bot" as const,
+      time,
+    };
+
+    // Show user + typing
+    setMessages((prev) => [...prev, userMessage, typingMessage]);
+    setInput("");
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: userInput }),
+      });
+
+      const data = await res.json();
+
+      const botMessage = {
+        text: data.reply || "No response",
+        sender: "bot" as const,
+        time: getTime(),
+      };
+
+      // Replace typing with actual response
+      setMessages((prev) => {
+        const updated = prev.slice(0, -1);
+        return [...updated, botMessage];
+      });
+
+    } catch (error) {
+      const errorMessage = {
+        text: "Something went wrong",
+        sender: "bot" as const,
+        time: getTime(),
+      };
+
+      setMessages((prev) => {
+        const updated = prev.slice(0, -1);
+        return [...updated, errorMessage];
+      });
+    }
+  };
 
   return (
     <div className="flex">
-
       <Sidebar />
 
       <div className="flex-1 flex flex-col">
         <Navbar />
-
-        {isTyping && (
-  <p className="text-gray-500 text-sm">AI is typing...</p>
-)}
 
         {/* Chat Area */}
         <div className="flex-1 p-6 overflow-y-auto space-y-4">
@@ -99,13 +120,11 @@ const handleSend = () => {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-
             onKeyDown={(e) => {
-  if (e.key === "Enter") handleSend();
-}}
-
+              if (e.key === "Enter") handleSend();
+            }}
             placeholder="Type a message..."
-            className="flex-1 p-6 overflow-y-auto space-y-2"
+            className="flex-1 border rounded px-3 py-2"
           />
           <button
             onClick={handleSend}
@@ -114,7 +133,6 @@ const handleSend = () => {
             Send
           </button>
         </div>
-
       </div>
     </div>
   );
